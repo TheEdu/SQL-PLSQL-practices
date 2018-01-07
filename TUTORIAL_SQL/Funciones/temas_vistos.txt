@@ -1,0 +1,8 @@
+
+Temas Vistos:
+
+-->Restricciones de operacion DML y de DDL (dentro de las funciones) en querys (DML Y DDL) que usan esas funciones
+-->Restricciones de commit y rollback dentro de las funciones
+-->Funciones Deterministicas (Aumentan la eficiencia)
+-->Funciones en Paralelo
+-->Pracgma Restrictions (oracle 8g y anteriores, ahora se usa DTERMINISTIC Y PARALEL ENABLE para indicar la pureza del codigo)

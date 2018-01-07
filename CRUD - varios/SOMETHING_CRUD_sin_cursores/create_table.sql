@@ -1,0 +1,7 @@
+CREATE TABLE SOMETHING_CRUD
+  (
+    id NUMBER(*,0) PRIMARY KEY,
+    description VARCHAR(50) NOT NULL,
+    price NUMBER(*,2) NOT NULL
+  
+  );

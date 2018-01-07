@@ -1,0 +1,30 @@
+--CRUD XXLINK.VENDEDORES
+--LIST
+CREATE OR REPLACE PROCEDURE list_vendedores AS
+  CURSOR cr_get_vendedores IS
+    SELECT *
+    FROM XXLINK.VENDEDORES;
+  
+  l_nombre_completo VARCHAR2(50);
+    
+  PROCEDURE imprimir(p_desc IN VARCHAR2 DEFAULT 'Descricion: ', p_valor IN VARCHAR) 
+  IS
+  BEGIN
+    DBMS_OUTPUT.PUT_LINE(p_desc || p_valor);
+  EXCEPTION
+    WHEN OTHERS THEN
+      DBMS_OUTPUT.PUT_LINE(SQLERRM);
+      DBMS_OUTPUT.PUT_LINE(DBMS_UTILITY.FORMAT_ERROR_BACKTRACE);
+      RAISE;
+   END;
+BEGIN
+  FOR vendedor IN cr_get_vendedores LOOP
+    l_nombre_completo := vendedor.NOMBRE || ' ' || vendedor.APELLIDO;
+    imprimir('NOMBRE COMPLETO: ', l_nombre_completo);
+  END LOOP;
+EXCEPTION
+  WHEN OTHERS THEN
+    DBMS_OUTPUT.PUT_LINE(SQLERRM);
+    DBMS_OUTPUT.PUT_LINE(DBMS_UTILITY.FORMAT_ERROR_BACKTRACE);
+    RAISE;
+END;

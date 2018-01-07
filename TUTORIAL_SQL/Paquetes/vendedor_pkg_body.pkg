@@ -1,0 +1,296 @@
+-- VENDEDOR_PKG.SPC
+CREATE OR REPLACE PACKAGE BODY XXLINK.vendedor_pkg 
+AS
+
+-- DEVOLVER ID VENDEDOR
+  FUNCTION GET_ID_VENDEDOR(p_dni IN XXLINK.VENDEDORES.DNI%TYPE)
+  RETURN  XXLINK.VENDEDORES.ID%TYPE
+  IS
+    l_vend_id XXLINK.VENDEDORES.ID%TYPE DEFAULT NULL;
+  BEGIN
+    OPEN vendedor_global_pkg.g_rc_get_vendedor_id(p_dni);
+    FETCH vendedor_global_pkg.g_rc_get_vendedor_id INTO l_vend_id;
+    CLOSE vendedor_global_pkg.g_rc_get_vendedor_id;
+  
+    IF l_vend_id IS NULL THEN
+      DBMS_OUTPUT.PUT_LINE('No existe un vendedor con ese ID');
+      RAISE vendedor_global_pkg.no_existe_vendedor;
+    ELSE  
+      RETURN l_vend_id;
+    END IF;
+  EXCEPTION 
+    WHEN OTHERS THEN
+      DBMS_OUTPUT.PUT_LINE('Cantidad de registros fetcheados: ' || sql%ROWCOUNT);
+      DBMS_OUTPUT.PUT_LINE('Ha ocurrido un error:  '||SQLCODE||' -ERROR: '||SQLERRM);
+      RAISE;      
+  END GET_ID_VENDEDOR;
+  
+-- CALCULAR INGRESOS VENDEDOR
+  FUNCTION GET_INGRESOS_VENDEDOR(p_id IN XXLINK.VENDEDORES.ID%TYPE)
+  RETURN NUMBER
+  IS
+    CURSOR rc_get_ingresos IS
+    SELECT tbl.INGRESOS
+     FROM(SELECT tbl_vd.id, SUM(tbl_p.precio * tbl_vt.cantidad) AS INGRESOS
+            FROM XXLINK.VENDEDORES tbl_vd
+            INNER JOIN XXLINK.VENTAS tbl_vt ON tbl_vd.id = tbl_vt.vendedor_id
+            INNER JOIN XXLINK.PRODUCTOS tbl_p ON tbl_p.id = tbl_vt.producto_id
+          WHERE tbl_vd.id = p_id
+          GROUP BY tbl_vd.id) tbl;    
+      l_ingresos NUMBER;
+  BEGIN
+    OPEN rc_get_ingresos;
+    FETCH rc_get_ingresos INTO l_ingresos;
+    CLOSE rc_get_ingresos;
+    RETURN l_ingresos;    
+  EXCEPTION 
+    WHEN OTHERS THEN
+      DBMS_OUTPUT.PUT_LINE('Cantidad de registros fetcheados: ' || sql%ROWCOUNT);
+      DBMS_OUTPUT.PUT_LINE('Ha ocurrido un error:  '||SQLCODE||' -ERROR: '||SQLERRM);
+      RAISE;
+  END GET_INGRESOS_VENDEDOR;
+
+
+-- CALCULAR SUELDO
+  PROCEDURE CALC_SUELDO_VENDEDOR(p_dni IN XXLINK.VENDEDORES.DNI%TYPE) IS
+    l_vend_id XXLINK.VENDEDORES.DNI%TYPE;
+    l_ingresos NUMBER;
+    l_sueldo NUMBER;
+  BEGIN
+    l_vend_id := GET_ID_VENDEDOR(p_dni);
+    l_ingresos := GET_INGRESOS_VENDEDOR(l_vend_id);
+    l_sueldo := (l_ingresos*5/100) + vendedor_global_pkg.g_base;
+    DBMS_OUTPUT.PUT_LINE('Su sueldo es de ' || l_sueldo || ' dolares(?');
+  EXCEPTION 
+    WHEN OTHERS THEN
+      DBMS_OUTPUT.PUT_LINE('Cantidad de registros fetcheados: ' || sql%ROWCOUNT);
+      DBMS_OUTPUT.PUT_LINE('Ha ocurrido un error:  '||SQLCODE||' -ERROR: '||SQLERRM);
+      RAISE;
+  END CALC_SUELDO_VENDEDOR;
+  
+  
+/*Los siguientes metodos fueron copy pasteados de la carpeta CRUD VENDEDORES,
+  por eso no utilizan ninguna de las funciones de arriba como GET_ID_VENDEDOR(dni).
+  Fueron copiados al paquete con proposito de testing.
+  */
+  
+--CREATE
+PROCEDURE create_vendedor(p_nombre IN xxlink.vendedores.nombre%type, 
+                                            p_apellido IN xxlink.vendedores.apellido%type, 
+                                            p_departamento IN xxlink.departamentos.nombre%type, 
+                                            p_dni IN xxlink.vendedores.dni%type)
+AS
+  CURSOR cr_get_id_dept IS
+    SELECT tbl_dpt.ID
+      FROM XXLINK.DEPARTAMENTOS tbl_dpt
+    WHERE tbl_dpt.NOMBRE = p_departamento;
+    
+  -- Cursor generico para traer y validad el dni
+  rc_generico SYS_REFCURSOR;
+    
+  l_id_dept XXLINK.VENDEDORES.ID%TYPE;
+  
+  l_dni_test XXLINK.VENDEDORES.DNI%TYPE;
+  
+  -- Edu WAY!
+  --l_dummy_vendedor_id NUMBER DEFAULT 999999999999;
+
+  l_id_vendedor XXLINK.VENDEDORES.ID%TYPE DEFAULT create_vendedor_seq.nextval;
+BEGIN
+
+
+-- VALIDACION DE QUE SE HAYA INGRESADO UN DNI, NOMBRE Y APELLIDO
+  IF ((p_dni IS NULL)  OR (p_nombre IS NULL) OR (p_apellido IS NULL)) THEN
+    DBMS_OUTPUT.PUT_LINE('Ingrese un valor de DNI!');
+    RETURN;
+  ELSE
+  -- VALIDACION DE QUE EL DNI NO ESTE REPETIDO
+    OPEN rc_generico FOR
+      SELECT tbl_vd.dni
+        FROM XXLINK.VENDEDORES tbl_vd
+      WHERE tbl_vd.dni = p_dni;
+    FETCH rc_generico INTO l_dni_test;
+    CLOSE rc_generico;
+    
+    IF l_dni_test IS NOT NULL THEN
+      DBMS_OUTPUT.PUT_LINE('Ingrese un valor de DNI (no repetido)!');
+      RETURN;
+    END IF;
+  END IF;
+-- FIN VALIDACIONES
+
+-- Conseguir ID departamento en base al nombre de departamento ingresado
+  OPEN cr_get_id_dept;
+    FETCH cr_get_id_dept INTO l_id_dept;
+    IF cr_get_id_dept%NOTFOUND THEN
+      DBMS_OUTPUT.PUT_LINE('Ingrese un Nombre de DEPARTAMENTO valido!');
+      RETURN;
+      NULL;
+    END IF;
+  CLOSE cr_get_id_dept;
+  
+-- Insertar Nuevo Registro en la tabla de Vendedores
+  INSERT INTO XXLINK.VENDEDORES(id, NOMBRE, APELLIDO, DEPARTAMENTO_ID, dni)
+    VALUES(l_id_vendedor,/*Edu WAY! --> l_dummy_vendedor_id,*/
+           p_nombre, 
+           p_apellido,
+           l_id_dept,
+           p_dni);
+  
+  /* Edu WAY!
+  UPDATE XXLINK.VENDEDORES tbl_vd
+    SET tbl_vd.id =  CREATE_VENDEDOR_seq.nextval
+  WHERE tbl_vd.id = l_dummy_vendedor_id;
+  */  
+  
+-- Confirmacion de los cambios  
+  COMMIT;
+  DBMS_OUTPUT.PUT_LINE('Vendedor Creado con Exito! :)');
+  
+EXCEPTION
+  WHEN OTHERS THEN
+    DBMS_OUTPUT.PUT_LINE(SQLERRM);
+    DBMS_OUTPUT.PUT_LINE(DBMS_UTILITY.FORMAT_ERROR_BACKTRACE);
+    RAISE;
+END;
+
+
+-- DELETE VENDEDOR BY DNI
+PROCEDURE delete_vendedor(p_dni XXLINK.VENDEDORES.DNI%TYPE) 
+AS
+  CURSOR rc_get_vendedor IS
+    SELECT tbl_vd.*
+      FROM XXLINK.VENDEDORES tbl_vd
+    WHERE tbl_vd.dni = p_dni
+    FOR UPDATE NOWAIT;
+  
+  l_vendedor XXLINK.VENDEDORES%ROWTYPE;
+
+BEGIN
+  OPEN rc_get_vendedor;
+    FETCH rc_get_vendedor INTO l_vendedor;
+    IF rc_get_vendedor%NOTFOUND THEN
+      DBMS_OUTPUT.PUT_LINE('No existe un vendedor con ese DNI.');
+      DBMS_OUTPUT.PUT_LINE('Ingrese un otro DNI.');
+      RETURN;
+    ELSE
+      DELETE 
+      FROM XXLINK.VENDEDORES tbl_vd
+      WHERE CURRENT OF rc_get_vendedor;
+    END IF;
+  CLOSE rc_get_vendedor;
+  COMMIT;
+  DBMS_OUTPUT.PUT_LINE('Vendedor Eliminado con Exito :)');
+EXCEPTION
+  WHEN OTHERS THEN
+    RAISE;
+END;
+
+
+--LIST
+PROCEDURE list_vendedores AS
+  CURSOR cr_get_vendedores IS
+    SELECT *
+    FROM XXLINK.VENDEDORES;
+  
+  l_nombre_completo VARCHAR2(50);
+    
+  PROCEDURE imprimir(p_desc IN VARCHAR2 DEFAULT 'Descricion: ', p_valor IN VARCHAR) 
+  IS
+  BEGIN
+    DBMS_OUTPUT.PUT_LINE(p_desc || p_valor);
+  EXCEPTION
+    WHEN OTHERS THEN
+      DBMS_OUTPUT.PUT_LINE(SQLERRM);
+      DBMS_OUTPUT.PUT_LINE(DBMS_UTILITY.FORMAT_ERROR_BACKTRACE);
+      RAISE;
+   END;
+BEGIN
+  FOR vendedor IN cr_get_vendedores LOOP
+    l_nombre_completo := vendedor.NOMBRE || ' ' || vendedor.APELLIDO;
+    imprimir('NOMBRE COMPLETO: ', l_nombre_completo);
+  END LOOP;
+EXCEPTION
+  WHEN OTHERS THEN
+    DBMS_OUTPUT.PUT_LINE(SQLERRM);
+    DBMS_OUTPUT.PUT_LINE(DBMS_UTILITY.FORMAT_ERROR_BACKTRACE);
+    RAISE;
+END;
+
+
+--UPDATE
+PROCEDURE update_vendedor(p_dni IN XXLINK.VENDEDORES.DNI%TYPE,
+                                            p_nombre IN XXLINK.VENDEDORES.NOMBRE%TYPE DEFAULT 'NULL_BY_DEFAULT',
+                                            P_apellido IN XXLINK.VENDEDORES.APELLIDO%TYPE DEFAULT 'NULL_BY_DEFAULT',
+                                            p_departamento IN XXLINK.DEPARTAMENTOS.NOMBRE%TYPE DEFAULT 'NULL_BY_DEFAULT')
+AS
+
+  CURSOR rc_get_registro_by_dni IS
+    SELECT tbl_vd.*
+      FROM XXLINK.VENDEDORES tbl_vd
+    WHERE tbl_vd.dni = p_dni
+  FOR UPDATE NOWAIT;
+  
+  l_vendedor  XXLINK.VENDEDORES%ROWTYPE;
+  
+  l_nombre XXLINK.VENDEDORES.NOMBRE%TYPE;
+  l_apellido XXLINK.VENDEDORES.APELLIDO%TYPE;
+  l_departamento XXLINK.DEPARTAMENTOS.NOMBRE%TYPE;
+  
+    
+    
+BEGIN
+
+  OPEN rc_get_registro_by_dni;
+    FETCH rc_get_registro_by_dni INTO l_vendedor;
+    
+    --Validar existencia registro 
+    IF rc_get_registro_by_dni%NOTFOUND THEN
+      DBMS_OUTPUT.PUT_LINE('El DNI: ' || p_dni || ' no corresponde a ningun vendedor. Ingrese un DNI VALIDO!');
+    ELSE
+      -- Si existe el regsitro, LO ACTUALIZO!! (con el where current of correspondiente al cursor)
+      IF p_nombre = 'NULL_BY_DEFAULT' THEN
+        l_nombre := l_vendedor.nombre;
+      ELSE
+        l_nombre := p_nombre;
+      END IF;
+      
+      IF p_apellido = 'NULL_BY_DEFAULT' THEN
+        l_apellido := l_vendedor.apellido;
+      ELSE
+        l_apellido := p_apellido;
+      END IF;
+      
+      IF p_departamento = 'NULL_BY_DEFAULT' THEN
+        l_departamento := l_vendedor.departamento_id;
+      ELSE
+        l_departamento := p_departamento;
+      END IF;
+      
+      UPDATE XXLINK.VENDEDORES tbl_vd
+        SET tbl_vd.nombre = l_nombre,
+            tbl_vd.apellido = l_apellido,
+            tbl_vd.departamento_id = l_departamento
+        WHERE CURRENT OF rc_get_registro_by_dni;
+        
+      -- Confirmo los cambios;
+      COMMIT;
+      DBMS_OUTPUT.PUT_LINE('Vendedor Actualizado! :)');
+    END IF;
+  CLOSE rc_get_registro_by_dni;
+  RETURN;
+  
+EXCEPTION
+  WHEN OTHERS THEN
+    DBMS_OUTPUT.PUT_LINE(SQLERRM);
+    DBMS_OUTPUT.PUT_LINE(DBMS_UTILITY.FORMAT_ERROR_BACKTRACE);
+    RAISE;
+END;
+
+ /*
+  Aca iria la seccion de inicializacion del paquete BEGIN EXCEPTION
+  que se dispara cuando se comienza a utilizar el paquete por primera vez
+  en cada sesion.
+ */ 
+  
+END vendedor_pkg;

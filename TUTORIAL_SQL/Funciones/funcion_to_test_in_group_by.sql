@@ -1,0 +1,11 @@
+CREATE OR REPLACE FUNCTION get_name(p_id XXLINK.VENDEDORES.ID%TYPE)
+RETURN XXLINK.VENDEDORES.NOMBRE%TYPE 
+AS
+  l_name XXLINK.VENDEDORES.NOMBRE%TYPE;
+BEGIN
+  SELECT tbl_vd.nombre || ', ' || tbl_vd.apellido
+  INTO l_name
+    FROM XXLINK.VENDEDORES tbl_vd
+  WHERE tbl_vd.id = p_id;
+  RETURN l_name;
+END;

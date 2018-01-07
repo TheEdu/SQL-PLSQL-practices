@@ -1,0 +1,22 @@
+-- package body of package_name : D
+CREATE OR REPLACE PACKAGE BODY 
+  XXLINK.package_name AS
+  
+  /* Declaraciones de variables y constantes privadas
+     Implementacion de las funciones y procedimientos declarados en la especificacion del packete (.spc)
+     (si las func/proc implementadas aqui no estan declaradas en .spc entonces son func/proc privados)
+  */
+   
+  /* Puede tener una seccion de ejecucion BEGIN EXCEPTION, que se va a ejecutar
+     cuando el paquete es cargo por primera vez en la sesion 
+     
+     Todas las inicializaciones debo hacerlas dentro del BEGIN.
+     Si ocurre alguna excepsion va a ser tomada por el EXCEPTION del package body.
+     
+     Si declaro e inicializo mis variables en la seccion de declaracion del package 
+     body (fuera del BEGIN) y si se produce un error de inicializacion, 
+     entonces se va a producir una EXCEPCION y va a ser disparada hacia la aplicacion.
+     
+  */  
+  
+  END package_name;

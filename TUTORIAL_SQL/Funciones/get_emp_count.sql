@@ -1,0 +1,29 @@
+CREATE OR REPLACE FUNCTION XXLINK.get_emp_count RETURN NUMBER AS
+  CURSOR cf_get_dept IS
+    SELECT TBL_DEPT.DEPT_ID
+    FROM XXLINK.DEPARTMENTS tbl_dept
+    WHERE TBL_DEPT.DEPT_NAME = 'IT';
+  
+  l_dept_id XXLINK.DEPARTMENTS.DEPT_ID%TYPE;
+  l_count NUMBER DEFAULT 0;
+BEGIN
+  OPEN cf_get_dept;
+  FETCH cf_get_dept INTO l_dept_id; 
+  CLOSE cf_get_dept;
+  
+  SELECT count(*)
+    INTO l_count
+    FROM XXLINK.EMPLOYEE tbl_emp
+  WHERE TBL_EMP.EMP_DEPT_ID = l_dept_id;
+  
+  RETURN l_count;
+EXCEPTION
+  WHEN OTHERS THEN
+    IF cf_get_dept%ISOPEN THEN
+      CLOSE cf_get_dept;
+    END IF;
+  
+    DBMS_OUTPUT.PUT_LINE(SQLERRM);
+    DBMS_OUTPUT.PUT_LINE(DBMS_UTILITY.FORMAT_ERROR_BACKTRACE);
+    RAISE;
+END;
